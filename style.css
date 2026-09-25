@@ -38,3 +38,7 @@ button { font: inherit; font-weight: 600; border: 0; border-radius: 999px; curso
 button.primary { padding: 12px 32px; background: var(--accent); color: #fff; font-size: 15px; }
 button.primary:hover { filter: brightness(0.92); }
 button.ghost { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); padding: 6px 14px; background: var(--surface-1); color: var(--text-3); border: 1px solid var(--border); font-size: 13px; }
+button.secondary { padding: 6px 14px; background: var(--surface-1); color: var(--text-3); border: 1px solid var(--border); font-size: 13px; }
+button.link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; }
+#sync-pulse { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); }
+.nudge { display: flex; align-items: center; gap: 14px; color: var(--text-3); font-size: 13px; }

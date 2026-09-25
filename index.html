@@ -25,7 +25,22 @@
     </div>
     <p class="hint">Hold the cube with white on top and green in front. Turn the face when its note reaches the line.</p>
     <button id="start" class="primary">Start</button>
+    <button id="sync-open" class="secondary">Audio sync · <span id="calibration-value"></span></button>
     <p id="device" class="muted"></p>
+  </section>
+
+  <section id="sync" class="panel" hidden>
+    <h1>Audio sync</h1>
+    <p class="hint">Turn any face on each click. The offset adjusts itself every 8 turns. The circle should pulse with the click.</p>
+    <div id="sync-pulse"></div>
+    <p class="song">Offset <span id="sync-offset"></span></p>
+    <p id="sync-status" class="muted"></p>
+    <div class="nudge">
+      <button id="sync-earlier" class="secondary">−10 ms</button>
+      <button id="sync-reset" class="link">reset</button>
+      <button id="sync-later" class="secondary">+10 ms</button>
+    </div>
+    <button id="sync-done" class="primary">Done</button>
   </section>
 
   <section id="results" class="panel" hidden>

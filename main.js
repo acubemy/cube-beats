@@ -1,5 +1,5 @@
-import { NOTES, SONG, SONG_LENGTH } from "./chart.js";
-import { playHitSound, playMissSound, scheduleSong } from "./audio.js";
+import { BEAT, NOTES, SONG, SONG_LENGTH } from "./chart.js";
+import { playClick, scheduleSong } from "./audio.js";
 
 const acubemy = window.acubemy;
 
@@ -13,6 +13,9 @@ const GOOD_WINDOW = 0.18;
 // Bluetooth adds some delay between the physical turn and the event.
 const CUBE_LATENCY = 0.05;
 const SCORES = { perfect: 300, good: 100 };
+// Browsers tend to over-report outputLatency; measured ~120 ms too much on macOS.
+const DEFAULT_OFFSET = 0.12;
+const SYNC_SAMPLES = 8;
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("highway");
@@ -24,6 +27,32 @@ let playing = false;
 let notes = [];
 let stats = null;
 let flashes = [];
+let sync = null;
+let calibration = loadCalibration();
+
+function loadCalibration() {
+  try {
+    const stored = localStorage.getItem("cube-beats-calibration");
+    return stored === null ? DEFAULT_OFFSET : Number(stored) || 0;
+  } catch {
+    return DEFAULT_OFFSET;
+  }
+}
+
+function setCalibration(seconds) {
+  calibration = seconds;
+  try {
+    localStorage.setItem("cube-beats-calibration", String(seconds));
+  } catch {}
+  renderCalibration();
+}
+
+function renderCalibration() {
+  const ms = Math.round(calibration * 1000);
+  const text = `${ms > 0 ? "+" : ""}${ms} ms`;
+  $("calibration-value").textContent = text;
+  $("sync-offset").textContent = text;
+}
 
 $("song-title").textContent = SONG.title;
 $("song-bpm").textContent = String(SONG.bpm);
@@ -38,10 +67,10 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-/** Seconds into the song as the player hears it. */
+/** Seconds into the song as the player hears it. Calibrated with the sync tool. */
 function songTime() {
   if (!audio) return -Infinity;
-  return audio.ctx.currentTime - startAt - (audio.ctx.outputLatency || 0);
+  return audio.ctx.currentTime - startAt - (audio.ctx.outputLatency || 0) + calibration;
 }
 
 function renderDevice() {
@@ -56,21 +85,29 @@ function renderDevice() {
 acubemy.onDeviceChange(renderDevice);
 renderDevice();
 
-function start() {
+function ensureAudio() {
   if (!audio) {
     const ctx = new AudioContext();
     const master = ctx.createGain();
+    const glue = ctx.createDynamicsCompressor();
+    glue.threshold.value = -14;
+    glue.ratio.value = 4;
     master.gain.value = 0.8;
-    master.connect(ctx.destination);
+    master.connect(glue).connect(ctx.destination);
     audio = { ctx, master };
   }
+  audio.ctx.resume();
+}
+
+function start() {
+  ensureAudio();
   if (audio.song) audio.song.disconnect();
   audio.song = audio.ctx.createGain();
   audio.song.connect(audio.master);
-  audio.ctx.resume();
+  audio.lead = audio.ctx.createGain();
+  audio.lead.connect(audio.song);
   startAt = audio.ctx.currentTime + 0.3;
-  scheduleSong(audio.ctx, audio.song, startAt);
-
+  scheduleSong(audio.ctx, { song: audio.song, lead: audio.lead }, startAt);
   notes = NOTES.map((n) => ({ ...n, result: null }));
   stats = { score: 0, combo: 0, bestCombo: 0, perfect: 0, good: 0, miss: 0 };
   flashes = [];
@@ -112,33 +149,86 @@ function renderHud() {
   $("multiplier").textContent = multiplier() > 1 ? `combo · ×${multiplier()}` : "combo";
 }
 
-function judge(note, result, at) {
+function judge(note, result) {
   note.result = result;
   if (result === "miss") {
     stats.miss++;
     stats.combo = 0;
-    playMissSound(audio.ctx, audio.master);
+    audio.lead.gain.setTargetAtTime(0.12, audio.ctx.currentTime, 0.03);
   } else {
     stats[result]++;
     stats.combo++;
     stats.bestCombo = Math.max(stats.bestCombo, stats.combo);
     stats.score += SCORES[result] * multiplier();
-    playHitSound(audio.ctx, audio.master, at, result === "perfect");
+    audio.lead.gain.setTargetAtTime(1, audio.ctx.currentTime, 0.015);
   }
   flashes.push({ lane: LANES.indexOf(note.face), text: result === "miss" ? "Miss" : result === "perfect" ? "Perfect" : "Good", result, at: performance.now() });
   renderHud();
 }
 
+const lastPress = {};
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted.length ? sorted[Math.floor(sorted.length / 2)] : NaN;
+}
+
+function openSync() {
+  ensureAudio();
+  const out = audio.ctx.createGain();
+  out.connect(audio.master);
+  startAt = audio.ctx.currentTime + 0.3;
+  sync = { out, nextBeat: 0, offsets: [] };
+  $("sync-status").textContent = "Turn any face on each click.";
+  $("menu").hidden = true;
+  $("sync").hidden = false;
+}
+
+function closeSync() {
+  sync.out.disconnect();
+  sync = null;
+  $("sync").hidden = true;
+  $("menu").hidden = false;
+}
+
+function syncTurn(latency) {
+  const t = songTime() - latency;
+  if (t < -BEAT / 2) return;
+  sync.offsets.push(t - Math.round(t / BEAT) * BEAT);
+  if (sync.offsets.length < SYNC_SAMPLES) {
+    $("sync-status").textContent = `Measuring… ${sync.offsets.length}/${SYNC_SAMPLES}`;
+    return;
+  }
+  const shift = -median(sync.offsets);
+  sync.offsets = [];
+  setCalibration(calibration + shift);
+  const ms = Math.round(shift * 1000);
+  $("sync-status").textContent = Math.abs(ms) <= 10 ? "In sync. Keep turning to double-check." : `Adjusted by ${ms > 0 ? "+" : ""}${ms} ms. Keep turning to refine.`;
+}
+
+function scheduleClicks() {
+  while (startAt + sync.nextBeat * BEAT < audio.ctx.currentTime + 0.2) {
+    playClick(audio.ctx, sync.out, startAt + sync.nextBeat * BEAT, sync.nextBeat % SONG.beatsPerBar === 0);
+    sync.nextBeat++;
+  }
+  const phase = ((songTime() % BEAT) + BEAT) % BEAT;
+  const pulse = Math.exp(-phase * 12);
+  $("sync-pulse").style.transform = `scale(${1 + pulse * 0.35})`;
+  $("sync-pulse").style.opacity = String(0.35 + pulse * 0.65);
+}
+
 function onTurn(face, prime, latency) {
+  lastPress[face] = performance.now();
+  if (sync) return syncTurn(latency);
   if (!playing) return;
   const t = songTime() - latency;
   const candidate = notes.find((n) => !n.result && n.face === face && Math.abs(n.time - t) <= GOOD_WINDOW);
   if (!candidate) return;
   if (candidate.prime !== prime) {
-    judge(candidate, "miss", t);
+    judge(candidate, "miss");
     return;
   }
-  judge(candidate, Math.abs(candidate.time - t) <= PERFECT_WINDOW ? "perfect" : "good", t);
+  judge(candidate, Math.abs(candidate.time - t) <= PERFECT_WINDOW ? "perfect" : "good");
 }
 
 acubemy.onMove(({ face, prime }) => onTurn(face, prime, acubemy.getDevice().connected ? CUBE_LATENCY : 0));
@@ -153,6 +243,12 @@ if (window.parent !== window) {
 
 $("start").addEventListener("click", start);
 $("again").addEventListener("click", start);
+$("sync-open").addEventListener("click", openSync);
+$("sync-done").addEventListener("click", closeSync);
+$("sync-earlier").addEventListener("click", () => setCalibration(calibration - 0.01));
+$("sync-later").addEventListener("click", () => setCalibration(calibration + 0.01));
+$("sync-reset").addEventListener("click", () => setCalibration(DEFAULT_OFFSET));
+renderCalibration();
 $("quit").addEventListener("click", () => {
   stop();
   $("menu").hidden = false;
@@ -183,6 +279,18 @@ function draw() {
     g.globalAlpha = 0.9;
     roundRect(x + laneW / 2 - 18, hitY + 26, 36, 36, 10);
     g.fill();
+    const glow = Math.max(0, 1 - (performance.now() - (lastPress[face] ?? -Infinity)) / 250);
+    if (glow > 0) {
+      g.globalAlpha = glow * 0.6;
+      g.strokeStyle = FACE_COLORS[face];
+      g.lineWidth = 3;
+      roundRect(x + laneW / 2 - 22, hitY + 22, 44, 44, 13);
+      g.stroke();
+      g.fillStyle = "#fff";
+      g.globalAlpha = glow * 0.35;
+      roundRect(x + laneW / 2 - 18, hitY + 26, 36, 36, 10);
+      g.fill();
+    }
     g.globalAlpha = 1;
     g.fillStyle = COLORS.surface;
     g.font = "700 16px 'Geist Variable', system-ui, sans-serif";
@@ -200,7 +308,7 @@ function draw() {
     g.rect(0, top, w, hitY + 16 - top);
     g.clip();
     for (const note of notes) {
-      if (!note.result && t - note.time > GOOD_WINDOW) judge(note, "miss", t);
+      if (!note.result && t - note.time > GOOD_WINDOW) judge(note, "miss");
       if (note.result && note.result !== "miss") continue;
       const dt = note.time - t;
       if (dt > LOOKAHEAD || dt < -0.4) continue;
@@ -253,6 +361,7 @@ function draw() {
 
     if (t > SONG_LENGTH + 0.3) finish();
   }
+  if (sync) scheduleClicks();
   requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);
