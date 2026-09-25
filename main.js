@@ -195,6 +195,10 @@ function draw() {
   g.fillRect(left, hitY - 1, laneW * LANES.length, 2);
 
   if (playing) {
+    g.save();
+    g.beginPath();
+    g.rect(0, top, w, hitY + 16 - top);
+    g.clip();
     for (const note of notes) {
       if (!note.result && t - note.time > GOOD_WINDOW) judge(note, "miss", t);
       if (note.result && note.result !== "miss") continue;
@@ -223,6 +227,7 @@ function draw() {
       g.fillText(note.move, x + nw / 2, y + 1);
       g.globalAlpha = 1;
     }
+    g.restore();
 
     const now = performance.now();
     flashes = flashes.filter((f) => now - f.at < 600);

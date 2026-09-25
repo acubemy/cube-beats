@@ -3,7 +3,7 @@
   "id": "cube-beats",
   "name": "Cube Beats",
   "author": "acubemy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A rhythm game for any smart cube: turn the right face in time with the music as notes reach the line. No gyro needed.",
   "entry": "index.html",
   "permissions": ["moves"]
