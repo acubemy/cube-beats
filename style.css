@@ -1,0 +1,40 @@
+:root {
+  --surface: #131619;
+  --surface-1: #1c1f22;
+  --surface-2: #212427;
+  --border: rgb(255 255 255 / 0.07);
+  --text: #e6e8ea;
+  --text-2: #c5c8cb;
+  --text-3: #9b9ea1;
+  --accent: rgb(241 142 33);
+}
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--surface); color: var(--text); font-family: "Geist Variable", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+canvas { display: block; width: 100%; height: 100%; }
+[hidden] { display: none !important; }
+
+#hud { position: fixed; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; pointer-events: none; }
+.stat { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 28px; font-weight: 700; line-height: 1; }
+.stat small { margin-top: 4px; font-size: 12px; color: var(--text-3); }
+.stat.right { align-items: flex-end; }
+
+.panel { position: fixed; inset: 0; margin: auto; width: min(360px, calc(100% - 32px)); height: fit-content; box-sizing: border-box; padding: 28px 24px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.panel h1 { margin: 0; font-size: 26px; font-weight: 700; }
+.song { margin: 0; color: var(--text-3); font-size: 14px; }
+.hint { margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.45; }
+.muted { margin: 0; color: var(--text-3); font-size: 13px; }
+.legend { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--text-2); }
+.legend div { display: flex; align-items: center; gap: 10px; }
+.note-demo { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 22px; border-radius: 6px; font-size: 13px; font-weight: 700; box-sizing: border-box; }
+.note-demo.filled { background: #eb4242; color: var(--surface); }
+.note-demo.outlined { border: 2px solid #eb4242; color: #eb4242; }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
+.grid div { display: flex; flex-direction: column; gap: 4px; padding: 12px 4px; background: var(--surface-2); border-radius: 10px; font-variant-numeric: tabular-nums; }
+.grid span { font-size: 20px; font-weight: 700; }
+.grid small { font-size: 12px; color: var(--text-3); }
+
+button { font: inherit; font-weight: 600; border: 0; border-radius: 999px; cursor: pointer; }
+button.primary { padding: 12px 32px; background: var(--accent); color: #fff; font-size: 15px; }
+button.primary:hover { filter: brightness(0.92); }
+button.ghost { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); padding: 6px 14px; background: var(--surface-1); color: var(--text-3); border: 1px solid var(--border); font-size: 13px; }

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Cube Beats</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist@5/index.css" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/gh/acubemy/plugin-sdk@1/v1.js"></script>
+</head>
+<body>
+  <canvas id="highway"></canvas>
+
+  <div id="hud" hidden>
+    <div class="stat"><span id="score">0</span><small>score</small></div>
+    <div class="stat right"><span id="combo">0</span><small id="multiplier">combo</small></div>
+  </div>
+
+  <section id="menu" class="panel">
+    <h1>Cube Beats</h1>
+    <p class="song"><span id="song-title"></span> · <span id="song-bpm"></span> BPM · <span id="song-length"></span></p>
+    <div class="legend">
+      <div><span class="note-demo filled">R</span> turn clockwise</div>
+      <div><span class="note-demo outlined">R'</span> turn counter-clockwise</div>
+    </div>
+    <p class="hint">Hold the cube with white on top and green in front. Turn the face when its note reaches the line.</p>
+    <button id="start" class="primary">Start</button>
+    <p id="device" class="muted"></p>
+  </section>
+
+  <section id="results" class="panel" hidden>
+    <h1 id="results-title">Song complete</h1>
+    <div class="grid">
+      <div><span id="r-score"></span><small>score</small></div>
+      <div><span id="r-accuracy"></span><small>accuracy</small></div>
+      <div><span id="r-combo"></span><small>best combo</small></div>
+    </div>
+    <p class="muted" id="r-breakdown"></p>
+    <button id="again" class="primary">Play again</button>
+  </section>
+
+  <button id="quit" class="ghost" hidden>Quit</button>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
